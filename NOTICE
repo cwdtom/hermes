@@ -1,0 +1,8 @@
+Dependencies:
+
+Cron:
+
+    * LICENSE:
+        * http://opensource.org/licenses/MIT (MIT License)
+    * HOMEPAGE:
+        * http://github.com/robfig/cron
