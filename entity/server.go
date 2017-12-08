@@ -133,7 +133,7 @@ func RemoveFailureServer() {
 }
 
 func copyServers(tmp []Server) []Server {
-	servers := make([]Server, 0)
+	servers := make([]Server, 0, 16)
 	for _, ele := range tmp {
 		if ele.Status {
 			servers = append(servers, ele.DeepCopy())

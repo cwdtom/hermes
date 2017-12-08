@@ -5,34 +5,38 @@ package timer
 import (
 	"hermes/entity"
 	. "hermes/utils/io"
-	"github.com/robfig/cron"
-	"fmt"
+	"time"
 )
 
+var checkServerAliveTicker *time.Ticker
+var removeFailureServerTicker *time.Ticker
+
 func MainTimer() {
-	c := cron.New()
-	// 检查服务状态定时器
+	checkServerAliveTicker = time.NewTicker(time.Duration(entity.CheckServersAliveDuration) * time.Second)
 	PrintInfo("start checkServerAliveTimer")
-	checkServerAliveTimer()
-	spec := fmt.Sprintf("@every %ds", entity.CheckServersAliveDuration)
-	c.AddFunc(spec, checkServerAliveTimer)
-	// 移除超时的失效定时器
+	go checkServerAliveTimer()
+
+	removeFailureServerTicker = time.NewTicker(time.Duration(entity.RemoveFailureServerDuration) * time.Second)
 	PrintInfo("start removeFailureServerTimer")
-	removeFailureServerTimer()
-	spec = fmt.Sprintf("@every %ds", entity.RemoveFailureServerDuration)
-	c.AddFunc(spec, removeFailureServerTimer)
-	// 启动定时器
-	c.Start()
+	go removeFailureServerTimer()
 }
 
+// 定时检查服务是否存活
 func checkServerAliveTimer() {
-	PrintInfo("start check server alive")
-	entity.CheckServersStatus()
-	PrintInfo("end check server alive")
+	for true {
+		PrintInfo("start check server alive")
+		entity.CheckServersStatus()
+		PrintInfo("end check server alive")
+		<-checkServerAliveTicker.C
+	}
 }
 
+// 定时移除超时服务
 func removeFailureServerTimer() {
-	PrintInfo("start remove failure server")
-	entity.RemoveFailureServer()
-	PrintInfo("end remove failure server")
+	for true {
+		PrintInfo("start remove failure server")
+		entity.RemoveFailureServer()
+		PrintInfo("end remove failure server")
+		<-removeFailureServerTicker.C
+	}
 }

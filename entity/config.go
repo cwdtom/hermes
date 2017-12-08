@@ -39,7 +39,7 @@ func InitConfig(args []string) {
 	CONF = config{Port: tmp.Port, Timeout: tmp.Timeout, KeyLength: tmp.KeyLength, BackupPath: path}
 
 	// 初始化服务表
-	SERVERS = make([]Server, 0)
+	SERVERS = make([]Server, 0, 16)
 
 	// 启动修改SERVERS协程
 	go ModifyServers()
