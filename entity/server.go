@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"bufio"
-	. "hermes/utils/io"
+	. "hermes/http_server"
 )
 
 type Server struct {
@@ -89,28 +89,28 @@ func GetServerBySessionId(sessionId string) *Server {
 func BackUpServers(path string) {
 	data, err := json.Marshal(SERVERS)
 	if err != nil {
-		PrintError("back up error: \nerror code: %d\nerror message: %s", ServerError, err.Error())
+		LOG.Error("back up error: %s", err.Error())
 	}
 	filePath := path + BackupFileName
 	out, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
-		PrintError("back up error: \nerror code: %d\nerror message: %s", ServerError, err.Error())
+		LOG.Error("back up error: %s", err.Error())
 	}
 	defer out.Close()
 	outWriter := bufio.NewWriter(out)
 	_, err = outWriter.Write(data)
 	if err != nil {
-		PrintError("back up error: \nerror code: %d\nerror message: %s", ServerError, err.Error())
+		LOG.Error("back up error: %s", err.Error())
 	}
 	outWriter.Flush()
-	PrintInfo("servers backup success")
+	LOG.Info("servers backup success")
 }
 
 func RestoreServers(path string) {
 	filePath := path + BackupFileName
 	in, err := os.Open(filePath)
 	if err != nil {
-		PrintWarn("backup file not existed")
+		LOG.Warn("backup file not existed")
 		return
 	}
 	defer in.Close()
@@ -122,13 +122,15 @@ func RestoreServers(path string) {
 
 // 检查服务状态，超时的置为不可用
 func CheckServersStatus() {
-	// 通知修改状态
+	// 通知检查服务状态，超时的置为不可用
+	LOG.Info("notice check servers status")
 	modifyServerChannel <- serverChannel{operate: 3}
 }
 
 // 移除失效并超出保留时间的服务
 func RemoveFailureServer() {
-	// 通知操作删除
+	// 通知移除失效并超出保留时间的服务
+	LOG.Info("notice remove failure server")
 	modifyServerChannel <- serverChannel{operate: 4}
 }
 
@@ -169,20 +171,20 @@ func ModifyServers() {
 		case 1:    // 更新已有服务
 			if SERVERS[sc.index].Host == sc.server.Host {
 				SERVERS[sc.index] = sc.server
-				PrintInfo("serverId: %s host: %s sessionId: %s update success",
+				LOG.Info("serverId: %s host: %s sessionId: %s update success",
 					sc.server.Id, sc.server.Host, sc.server.SessionId)
 			}
 			break
 		case 2:    // 注册新服务
 			SERVERS = append(SERVERS, sc.server)
-			PrintInfo("serverId: %s host: %s sessionId: %s register success",
+			LOG.Info("serverId: %s host: %s sessionId: %s register success",
 				sc.server.Id, sc.server.Host, sc.server.SessionId)
 			break
 		case 3:    // 检查服务状态，设置超时服务失效
 			now := time.Now().Unix()
 			for index, s := range SERVERS {
 				if s.Status && now > s.Expire {
-					PrintWarn("serverId: %s host: %s sessionId: %s already failure",
+					LOG.Warn("serverId: %s host: %s sessionId: %s already failure",
 						s.Id, s.Host, s.SessionId)
 					SERVERS[index].Status = false
 				}
@@ -199,7 +201,7 @@ func ModifyServers() {
 					i--
 					length--
 					isRemove = true
-					PrintWarn("serverId: %s host: %s sessionId: %s already removed",
+					LOG.Warn("serverId: %s host: %s sessionId: %s already removed",
 						s.Id, s.Host, s.SessionId)
 				}
 			}
@@ -217,7 +219,7 @@ func ModifyServers() {
 			}
 			break
 		default:
-			PrintError("ModifyServers fail data: ", sc)
+			LOG.Error("ModifyServers fail: operate: %d, sessionId: %s", sc.operate, sc.sessionId)
 		}
 	}
 }

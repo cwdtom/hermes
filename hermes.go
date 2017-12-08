@@ -4,11 +4,11 @@ package main
 
 import (
 	"net/http"
-	httpUtils "hermes/utils/http"
-	. "hermes/entity"
 	"os"
-	"hermes/timer"
-	"hermes/router"
+	"time"
+	. "hermes/entity"
+	. "hermes/http_server"
+	. "hermes/utils/http"
 )
 
 // 监控页面
@@ -18,7 +18,7 @@ func indexHandler(_ http.ResponseWriter, _ *http.Request) interface{} {
 
 // 注册服务
 func registerHandler(_ http.ResponseWriter, req *http.Request) interface{} {
-	paramMap := httpUtils.ParamToMap(req)
+	paramMap := ParamToMap(req)
 	code := 0
 	puk, err := Register(paramMap["id"], paramMap["sessionId"], paramMap["host"])
 	if err != nil {
@@ -33,7 +33,7 @@ func registerHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 
 // 心跳检测
 func heartBeatHandler(_ http.ResponseWriter, req *http.Request) interface{} {
-	paramMap := httpUtils.ParamToMap(req)
+	paramMap := ParamToMap(req)
 	err := HeartBeat(paramMap["sessionId"])
 	if err != nil {
 		return Response{Code: err.Code}
@@ -43,7 +43,7 @@ func heartBeatHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 
 // 调用服务
 func serverHandler(_ http.ResponseWriter, req *http.Request) interface{} {
-	paramMap := httpUtils.ParamToMap(req)
+	paramMap := ParamToMap(req)
 	data := paramMap["sessionId"] + paramMap["serverId"] + paramMap["name"] + paramMap["data"]
 	return Response{Code: 0, Data: data}
 }
@@ -53,14 +53,19 @@ func main() {
 	InitConfig(os.Args)
 	// 恢复备份数据
 	RestoreServers(CONF.BackupPath)
-	// 定时器
-	timer.MainTimer()
 	// web服务
-	r := router.NewRouter()
-	r.AddHandler("/", indexHandler)
-	r.AddHandler("/register", registerHandler)
-	r.AddHandler("/heartBeat", heartBeatHandler)
-	r.AddHandler("/server", serverHandler)
-	r.AddHandler("/favicon.ico", router.StaticFileHandler)
-	r.Start()
+	hs := NewHttpServer()
+	// 定时检查服务是否存活
+	hs.AddTimer(CheckServersAliveDuration * time.Second, CheckServersStatus, "CheckServersStatus")
+	// 定时移除超时服务
+	hs.AddTimer(RemoveFailureServerDuration * time.Second, RemoveFailureServer, "RemoveFailureServer")
+	// 设定日志级别
+	hs.SetLogLevel(INFO)
+	// 路由
+	hs.AddHandler("/", indexHandler)
+	hs.AddHandler("/register", registerHandler)
+	hs.AddHandler("/heartBeat", heartBeatHandler)
+	hs.AddHandler("/server", serverHandler)
+	hs.AddHandler("/favicon.ico", StaticFileHandler)
+	hs.Start(CONF.Port)
 }
