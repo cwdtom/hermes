@@ -1,11 +1,6 @@
 // author chenweidong
 
-package entity
-
-// 配置
-var CONF config
-// 服务
-var SERVERS []Server
+package service
 
 // 全局常量
 // 备份文件名字

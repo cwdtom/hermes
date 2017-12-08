@@ -1,4 +1,4 @@
-// author gorsa github复制
+// author gorsa github copy
 
 package encipher
 

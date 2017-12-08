@@ -1,15 +1,19 @@
 // 实体相关 author chenweidong
 
-package entity
+package service
 
 import (
 	"time"
-	"hermes/utils/encipher"
 	"encoding/json"
 	"os"
 	"bufio"
 	. "hermes/http_server"
+	. "hermes/error"
+	. "hermes/utils/encipher"
 )
+
+// 全局服务
+var SERVERS []Server
 
 type Server struct {
 	Id         string
@@ -22,7 +26,7 @@ type Server struct {
 
 func Register(id, sessionId, host string) (string, *Error) {
 	// 生成公私钥
-	key, err := encipher.GenRsaKey(CONF.KeyLength)
+	key, err := GenRsaKey(CONF.KeyLength)
 	if err != nil {
 		return "", NewError(ServerError, err.Error())
 	}
@@ -33,7 +37,7 @@ func Register(id, sessionId, host string) (string, *Error) {
 	index, status := newServer.IsExisted()
 	if index >= 0 {
 		if status {
-			return "", NewError(RepeatRegister, "server is already existed")
+			return "", NewError(RepeatRegister, "service is already existed")
 		}
 		// 通知更新服务信息
 		modifyServerChannel <- serverChannel{operate: 1, server: newServer, index: index}
@@ -54,7 +58,7 @@ func HeartBeat(sessionId string) *Error {
 	// 通知修改服务状态
 	server := GetServerBySessionId(sessionId)
 	if server == nil {
-		return NewError(ServerNotExisted, "server not existed")
+		return NewError(ServerNotExisted, "service not existed")
 	}
 	modifyServerChannel <- serverChannel{operate: 5, sessionId: sessionId}
 	return nil
@@ -130,7 +134,7 @@ func CheckServersStatus() {
 // 移除失效并超出保留时间的服务
 func RemoveFailureServer() {
 	// 通知移除失效并超出保留时间的服务
-	LOG.Info("notice remove failure server")
+	LOG.Info("notice remove failure service")
 	modifyServerChannel <- serverChannel{operate: 4}
 }
 

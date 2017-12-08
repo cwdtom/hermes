@@ -1,6 +1,6 @@
 // author chenweidong
 
-package entity
+package service
 
 import (
 	"os"
@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-type config struct {
+// 全局配置
+var CONF Config
+
+type Config struct {
 	Port       int
 	Timeout    int64
 	KeyLength  int
@@ -26,7 +29,7 @@ func InitConfig(args []string) {
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(file)
-	tmp := config{}
+	tmp := Config{}
 	err := decoder.Decode(&tmp)
 	if err != nil {
 		fmt.Println("config file is not legal")
@@ -36,7 +39,7 @@ func InitConfig(args []string) {
 	if !strings.HasSuffix(path, "/") {
 		path += "/"
 	}
-	CONF = config{Port: tmp.Port, Timeout: tmp.Timeout, KeyLength: tmp.KeyLength, BackupPath: path}
+	CONF = Config{Port: tmp.Port, Timeout: tmp.Timeout, KeyLength: tmp.KeyLength, BackupPath: path}
 
 	// 初始化服务表
 	SERVERS = make([]Server, 0, 16)

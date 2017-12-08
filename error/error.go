@@ -1,4 +1,4 @@
-package entity
+package error
 
 type Error struct {
 	Code   int

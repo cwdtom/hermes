@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 	"time"
-	. "hermes/entity"
 	. "hermes/http_server"
 	. "hermes/utils/http"
+	. "hermes/service"
 )
 
 // 监控页面
@@ -65,7 +65,7 @@ func main() {
 	hs.AddHandler("/", indexHandler)
 	hs.AddHandler("/register", registerHandler)
 	hs.AddHandler("/heartBeat", heartBeatHandler)
-	hs.AddHandler("/server", serverHandler)
+	hs.AddHandler("/service", serverHandler)
 	hs.AddHandler("/favicon.ico", StaticFileHandler)
 	hs.Start(CONF.Port)
 }
