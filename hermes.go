@@ -73,7 +73,7 @@ func main() {
 	hs.AddHandler("/", indexHandler)
 	hs.AddHandler("/register", registerHandler)
 	hs.AddHandler("/heartBeat", heartBeatHandler)
-	hs.AddHandler("/model", serverHandler)
+	hs.AddHandler("/server", serverHandler)
 	hs.AddHandler("/favicon.ico", StaticFileHandler)
 	hs.Start(CONF.Port)
 }
