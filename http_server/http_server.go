@@ -71,7 +71,7 @@ func (h *HttpServer) Start(port int) {
 	for _, t := range h.timerList {
 		t.Start()
 	}
-	h.log.Info("service is running on port: %d", port)
+	h.log.Info("model is running on port: %d", port)
 	http.ListenAndServe(":"+strconv.Itoa(port), nil)
 }
 

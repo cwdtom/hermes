@@ -1,6 +1,6 @@
 // 实体相关 author chenweidong
 
-package service
+package model
 
 import (
 	"time"
@@ -10,18 +10,24 @@ import (
 	. "hermes/http_server"
 	. "hermes/error"
 	. "hermes/utils/encipher"
+	"math/rand"
+	"net/http"
+	"fmt"
+	"io/ioutil"
 )
 
 // 全局服务
 var SERVERS []Server
 
 type Server struct {
-	Id         string
-	SessionId  string
-	Expire     int64
-	PrivateKey string
-	Host       string
-	Status     bool
+	Id           string
+	SessionId    string
+	Expire       int64
+	PrivateKey   string
+	Host         string
+	Status       bool
+	CallCount    int64
+	SuccessCount int64
 }
 
 func Register(id, sessionId, host string) (string, *Error) {
@@ -31,13 +37,14 @@ func Register(id, sessionId, host string) (string, *Error) {
 		return "", NewError(ServerError, err.Error())
 	}
 
-	newServer := Server{Id: id, SessionId: sessionId, Host: host,
-		Status: true, Expire: time.Now().Unix() + CONF.Timeout, PrivateKey: key.PrivateKey}
+	newServer := Server{Id: id, SessionId: sessionId, Host: host, Status: true,
+						Expire: time.Now().Unix() + CONF.Timeout, PrivateKey: key.PrivateKey,
+						CallCount: 0, SuccessCount: 0}
 	// 检查是否已注册
 	index, status := newServer.IsExisted()
 	if index >= 0 {
 		if status {
-			return "", NewError(RepeatRegister, "service is already existed")
+			return "", NewError(RepeatRegister, "model is already existed")
 		}
 		// 通知更新服务信息
 		modifyServerChannel <- serverChannel{operate: 1, server: newServer, index: index}
@@ -58,7 +65,7 @@ func HeartBeat(sessionId string) *Error {
 	// 通知修改服务状态
 	server := GetServerBySessionId(sessionId)
 	if server == nil {
-		return NewError(ServerNotExisted, "service not existed")
+		return NewError(ServerNotExisted, "model not existed")
 	}
 	modifyServerChannel <- serverChannel{operate: 5, sessionId: sessionId}
 	return nil
@@ -134,7 +141,7 @@ func CheckServersStatus() {
 // 移除失效并超出保留时间的服务
 func RemoveFailureServer() {
 	// 通知移除失效并超出保留时间的服务
-	LOG.Info("notice remove failure service")
+	LOG.Info("notice remove failure model")
 	modifyServerChannel <- serverChannel{operate: 4}
 }
 
@@ -160,6 +167,57 @@ func (s *Server) DeepCopy() Server {
 	return target
 }
 
+func (s *Server) CallServer(id, name, data string) ([]byte, *Error) {
+	// 解密
+	text, err := RsaDecryptByPrk([]byte(data), s.PrivateKey)
+	if err != nil {
+		LOG.Warn("调用服务解密失败：%s", err.Error())
+		return []byte{}, &Error{Code: RsaError}
+	}
+	// 提取目标server
+	tmp := make([]Server, 0, len(SERVERS))
+	for _, s := range SERVERS {
+		if s.Id == id {
+			tmp = append(tmp, s)
+		}
+	}
+	target := tmp[rand.Intn(100) * len(tmp) / 100]
+	// 增加调用次数
+	target.CallCount += 1
+	// 明文加密
+	sendData, err := RsaEncryptByPrk(text, target.PrivateKey)
+	if err != nil {
+		LOG.Error("调用服务加密失败：%s", err.Error())
+		return []byte{}, &Error{Code: RsaError}
+	}
+	// 发送请求
+	resp, err := http.Get(fmt.Sprintf("http://%s/%s?name=%s&data=%s",
+		target.Host, target.SessionId, name, string(sendData[:])))
+	if err != nil {
+		return []byte{}, &Error{Code: RequestError}
+	}
+	// 响应解密
+	respData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		LOG.Error("请求服务失败：%s | sessionId: %s", err.Error(), target.SessionId)
+		return []byte{}, &Error{Code: ReadResponseError}
+	}
+	respData, err = RsaDecryptByPrk(respData, target.PrivateKey)
+	if err != nil {
+		LOG.Error("响应解密失败：%s", err.Error())
+		return []byte{}, &Error{Code: RsaError}
+	}
+	// 响应加密
+	respData, err = RsaEncryptByPrk(respData, s.PrivateKey)
+	if err != nil {
+		LOG.Error("响应加密失败：%s", err.Error())
+		return []byte{}, &Error{Code: RsaError}
+	}
+	// 添加成功调用次数
+	target.SuccessCount += 1
+	return respData, nil
+}
+
 // 服务修改协程通道
 var modifyServerChannel chan serverChannel
 
@@ -172,19 +230,19 @@ func ModifyServers() {
 			return
 		}
 		switch sc.operate {
-		case 1:    // 更新已有服务
+		case 1: // 更新已有服务
 			if SERVERS[sc.index].Host == sc.server.Host {
 				SERVERS[sc.index] = sc.server
 				LOG.Info("serverId: %s host: %s sessionId: %s update success",
 					sc.server.Id, sc.server.Host, sc.server.SessionId)
 			}
 			break
-		case 2:    // 注册新服务
+		case 2: // 注册新服务
 			SERVERS = append(SERVERS, sc.server)
 			LOG.Info("serverId: %s host: %s sessionId: %s register success",
 				sc.server.Id, sc.server.Host, sc.server.SessionId)
 			break
-		case 3:    // 检查服务状态，设置超时服务失效
+		case 3: // 检查服务状态，设置超时服务失效
 			now := time.Now().Unix()
 			for index, s := range SERVERS {
 				if s.Status && now > s.Expire {
@@ -194,7 +252,7 @@ func ModifyServers() {
 				}
 			}
 			break
-		case 4:    // 移除失效并超出保留时间的服务
+		case 4: // 移除失效并超出保留时间的服务
 			length := len(SERVERS)
 			now := time.Now().Unix()
 			isRemove := false
@@ -214,7 +272,7 @@ func ModifyServers() {
 				go BackUpServers(CONF.BackupPath)
 			}
 			break
-		case 5:    // 收到服务心跳，更新服务状态
+		case 5: // 收到服务心跳，更新服务状态
 			for index, s := range SERVERS {
 				if s.SessionId == sc.sessionId {
 					SERVERS[index].Status = true

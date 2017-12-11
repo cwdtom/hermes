@@ -8,7 +8,8 @@ import (
 	"time"
 	. "hermes/http_server"
 	. "hermes/utils/http"
-	. "hermes/service"
+	. "hermes/model"
+	. "hermes/error"
 )
 
 // 监控页面
@@ -44,7 +45,14 @@ func heartBeatHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 // 调用服务
 func serverHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 	paramMap := ParamToMap(req)
-	data := paramMap["sessionId"] + paramMap["serverId"] + paramMap["name"] + paramMap["data"]
+	s := GetServerBySessionId(paramMap["sessionId"])
+	if s == nil {
+		return Response{Code: ServerNotExisted}
+	}
+	data, err := s.CallServer(paramMap["serverId"], paramMap["name"], paramMap["data"])
+	if err != nil {
+		return Response{Code: err.Code}
+	}
 	return Response{Code: 0, Data: data}
 }
 
@@ -65,7 +73,7 @@ func main() {
 	hs.AddHandler("/", indexHandler)
 	hs.AddHandler("/register", registerHandler)
 	hs.AddHandler("/heartBeat", heartBeatHandler)
-	hs.AddHandler("/service", serverHandler)
+	hs.AddHandler("/model", serverHandler)
 	hs.AddHandler("/favicon.ico", StaticFileHandler)
 	hs.Start(CONF.Port)
 }

@@ -1,6 +1,6 @@
 // author chenweidong
 
-package service
+package model
 
 import (
 	"os"
