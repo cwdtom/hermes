@@ -45,8 +45,8 @@ func heartBeatHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 // 调用服务
 func serverHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 	paramMap := ParamToMap(req)
-	s := GetServerBySessionId(paramMap["sessionId"])
-	if s == nil {
+	_, s := GetServerBySessionId(paramMap["sessionId"])
+	if s == nil || !s.Status {
 		return Response{Code: ServerNotExisted}
 	}
 	data, err := s.CallServer(paramMap["serverId"], paramMap["name"], paramMap["data"])

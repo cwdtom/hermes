@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"fmt"
 	"io/ioutil"
+	"encoding/hex"
 )
 
 // 全局服务
@@ -41,11 +42,8 @@ func Register(id, sessionId, host string) (string, *Error) {
 						Expire: time.Now().Unix() + CONF.Timeout, PrivateKey: key.PrivateKey,
 						CallCount: 0, SuccessCount: 0}
 	// 检查是否已注册
-	index, status := newServer.IsExisted()
+	index := newServer.IsExisted()
 	if index >= 0 {
-		if status {
-			return "", NewError(RepeatRegister, "model is already existed")
-		}
 		// 通知更新服务信息
 		modifyServerChannel <- serverChannel{operate: 1, server: newServer, index: index}
 	} else {
@@ -63,38 +61,39 @@ func Register(id, sessionId, host string) (string, *Error) {
 
 func HeartBeat(sessionId string) *Error {
 	// 通知修改服务状态
-	server := GetServerBySessionId(sessionId)
-	if server == nil {
-		return NewError(ServerNotExisted, "model not existed")
+	index, _ := GetServerBySessionId(sessionId)
+	if index < 0 {
+		return NewError(ServerNotExisted, "server not existed")
 	}
 	modifyServerChannel <- serverChannel{operate: 5, sessionId: sessionId}
 	return nil
 }
 
 // @return 位置 int 是否可用 bool
-func (s *Server) IsExisted() (int, bool) {
+func (s *Server) IsExisted() int {
 	if len(SERVERS) < 1 {
-		return -1, false
+		return -1
 	}
 	for index, ele := range SERVERS {
 		if s.Host == ele.Host {
-			return index, ele.Status
+			return index
 		}
 	}
-	return -1, false
+	return -1
 }
 
 func isSessionIdRepeat(sessionId string) bool {
-	return GetServerBySessionId(sessionId) != nil
+	index, _ := GetServerBySessionId(sessionId)
+	return  index > 0
 }
 
-func GetServerBySessionId(sessionId string) *Server {
-	for _, s := range SERVERS {
+func GetServerBySessionId(sessionId string) (int, *Server) {
+	for index, s := range SERVERS {
 		if s.SessionId == sessionId {
-			return &s
+			return index, &s
 		}
 	}
-	return nil
+	return -1, nil
 }
 
 func BackUpServers(path string) {
@@ -141,7 +140,7 @@ func CheckServersStatus() {
 // 移除失效并超出保留时间的服务
 func RemoveFailureServer() {
 	// 通知移除失效并超出保留时间的服务
-	LOG.Info("notice remove failure model")
+	LOG.Info("notice remove failure server")
 	modifyServerChannel <- serverChannel{operate: 4}
 }
 
@@ -168,53 +167,63 @@ func (s *Server) DeepCopy() Server {
 }
 
 func (s *Server) CallServer(id, name, data string) ([]byte, *Error) {
+	// hex to bytes
+	bytes, _ := hex.DecodeString(data)
 	// 解密
-	text, err := RsaDecryptByPrk([]byte(data), s.PrivateKey)
+	text, err := RsaDecryptByPrk(bytes, s.PrivateKey)
 	if err != nil {
 		LOG.Warn("调用服务解密失败：%s", err.Error())
-		return []byte{}, &Error{Code: RsaError}
+		return nil, &Error{Code: RsaError}
 	}
 	// 提取目标server
-	tmp := make([]Server, 0, len(SERVERS))
+	tmp := make([]*Server, 0, len(SERVERS))
 	for _, s := range SERVERS {
 		if s.Id == id {
-			tmp = append(tmp, s)
+			tmp = append(tmp, &s)
 		}
 	}
+	if len(tmp) == 0 {
+		return nil, &Error{Code: ServerNotExisted}
+	}
 	target := tmp[rand.Intn(100) * len(tmp) / 100]
+	index, _ := GetServerBySessionId(target.SessionId)
 	// 增加调用次数
-	target.CallCount += 1
+	SERVERS[index].CallCount += 1
 	// 明文加密
 	sendData, err := RsaEncryptByPrk(text, target.PrivateKey)
 	if err != nil {
 		LOG.Error("调用服务加密失败：%s", err.Error())
-		return []byte{}, &Error{Code: RsaError}
+		return nil, &Error{Code: RsaError}
 	}
+	// bytes to hex
+	send := hex.EncodeToString(sendData)
 	// 发送请求
-	resp, err := http.Get(fmt.Sprintf("http://%s/%s?name=%s&data=%s",
-		target.Host, target.SessionId, name, string(sendData[:])))
+	address := fmt.Sprintf("http://%s/hermes?sessionId=%s&name=%s&data=%s",
+		target.Host, target.SessionId, name, send)
+	LOG.Info("call server: %s", address)
+	resp, err := http.Get(address)
 	if err != nil {
-		return []byte{}, &Error{Code: RequestError}
+		return nil, &Error{Code: RequestError}
 	}
 	// 响应解密
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		LOG.Error("请求服务失败：%s | sessionId: %s", err.Error(), target.SessionId)
-		return []byte{}, &Error{Code: ReadResponseError}
+		return nil, &Error{Code: ReadResponseError}
 	}
 	respData, err = RsaDecryptByPrk(respData, target.PrivateKey)
 	if err != nil {
 		LOG.Error("响应解密失败：%s", err.Error())
-		return []byte{}, &Error{Code: RsaError}
+		return nil, &Error{Code: RsaError}
 	}
 	// 响应加密
 	respData, err = RsaEncryptByPrk(respData, s.PrivateKey)
 	if err != nil {
 		LOG.Error("响应加密失败：%s", err.Error())
-		return []byte{}, &Error{Code: RsaError}
+		return nil, &Error{Code: RsaError}
 	}
 	// 添加成功调用次数
-	target.SuccessCount += 1
+	SERVERS[index].SuccessCount += 1
 	return respData, nil
 }
 
