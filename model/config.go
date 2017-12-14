@@ -19,20 +19,26 @@ type Config struct {
 	BackupPath string
 }
 
-func InitConfig(args []string) {
+func InitConfig() {
 	// 初始化配置
-	var file *os.File
-	if len(args) < 2 {
-		file, _ = os.Open("configs/config.json")
-	} else {
-		file, _ = os.Open(fmt.Sprintf("configs/config-%s.json", args[1]))
+	ss := strings.Split(os.Args[0], "/")
+	confPath := strings.Join(ss[:len(ss) - 1], "/") + "/hermes.json"
+	file, err := os.Open(confPath)
+	if err != nil {
+		file, err = os.Open("hermes.json")
+		if err != nil {
+			fmt.Println("[" + os.Args[0] + "/hermes.json] config file not existed")
+			fmt.Scanf("any press to exit")
+			os.Exit(1)
+		}
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	tmp := Config{}
-	err := decoder.Decode(&tmp)
+	err = decoder.Decode(&tmp)
 	if err != nil {
 		fmt.Println("config file is not legal")
+		fmt.Scanf("any press to exit")
 		os.Exit(1)
 	}
 	path := tmp.BackupPath

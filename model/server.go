@@ -102,7 +102,7 @@ func BackUpServers(path string) {
 		LOG.Error("back up error: %s", err.Error())
 	}
 	filePath := path + BackupFileName
-	out, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0666)
+	out, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 	if err != nil {
 		LOG.Error("back up error: %s", err.Error())
 	}
@@ -126,7 +126,7 @@ func RestoreServers(path string) {
 	defer in.Close()
 	decoder := json.NewDecoder(in)
 	var tmp []Server
-	err = decoder.Decode(&tmp)
+	decoder.Decode(&tmp)
 	SERVERS = copyServers(tmp)
 }
 

@@ -4,7 +4,6 @@ package main
 
 import (
 	"net/http"
-	"os"
 	"time"
 	. "hermes/http_server"
 	. "hermes/utils/http"
@@ -58,7 +57,7 @@ func serverHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 
 func main() {
 	// 初始化配置
-	InitConfig(os.Args)
+	InitConfig()
 	// 恢复备份数据
 	RestoreServers(CONF.BackupPath)
 	// web服务

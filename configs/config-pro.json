@@ -1,6 +1,0 @@
-{
-  "port": 8080,
-  "timeout": 180,
-  "keyLength": 1024,
-  "backupPath": "/"
-}
