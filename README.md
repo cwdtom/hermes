@@ -1,4 +1,4 @@
-# HERMES
+# Hermes
 
 
 ![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
@@ -7,23 +7,22 @@
 ## Overview
 
 - 基于RSA用于项目之间交互的中间件
-- 1.0.0开发完成
-- 后续开发Java SDK
+- Java端SDK (https://github.com/cwdtom/hermes-java)
 
 ## Configuration
 
 - 配置文件需放置于与可执行文件同一目录并命名为hermes.json
 
-#### Example
+- Example (hermes.json)
+    ```json
+    {
+      "port": 8080,
+      "timeout": 180,
+      "keyLength": 1024,
+      "backupPath": "/root/backup/"
+    }
+    ```
 
-```json
-{
-  "port": 8080,
-  "timeout": 180,
-  "keyLength": 1024,
-  "backupPath": "/root/backup/"
-}
-```
 1. port：服务启动端口号
 
 1. timeout:：服务过期时间，单位秒
