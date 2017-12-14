@@ -30,3 +30,7 @@
 1. keyLength：密钥长度，加密内容不能超过长度-11
 
 1. backupPath：服务信息备份地址
+
+## Usage
+
+1. 查看http://localhost/可以查看注册信息
