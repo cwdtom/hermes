@@ -178,7 +178,7 @@ func (s *Server) CallServer(id, name, data string) ([]byte, *Error) {
 	// 提取目标server
 	tmp := make([]*Server, 0, len(SERVERS))
 	for _, s := range SERVERS {
-		if s.Id == id {
+		if s.Id == id && s.Status {
 			tmp = append(tmp, &s)
 		}
 	}
