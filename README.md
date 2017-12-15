@@ -33,4 +33,4 @@
 
 ## Usage
 
-1. 查看http://localhost/可以查看注册信息
+1. http://your_host:port/ 可以查看注册信息
