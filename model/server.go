@@ -10,7 +10,6 @@ import (
 	. "hermes/http_server"
 	. "hermes/error"
 	. "hermes/utils/encipher"
-	"math/rand"
 	"net/http"
 	"fmt"
 	"io/ioutil"
@@ -185,7 +184,7 @@ func (s *Server) CallServer(id, name, data string) ([]byte, *Error) {
 	if len(tmp) == 0 {
 		return nil, &Error{Code: ServerNotExisted}
 	}
-	target := tmp[rand.Intn(100) * len(tmp) / 100]
+	target := tmp[int(time.Now().UnixNano() / 1000000) % len(tmp)]
 	index, _ := GetServerBySessionId(target.SessionId)
 	// 增加调用次数
 	SERVERS[index].CallCount += 1
