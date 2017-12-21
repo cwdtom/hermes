@@ -10,12 +10,18 @@ import (
 	"time"
 	"strconv"
 	"math/rand"
+	"os"
+	"fmt"
 )
 
 // 全局LOG
 var LOG *log
+// root path
+var ROOT_PATH string
 
 func NewHttpServer() *HttpServer {
+	ss := strings.Split(os.Args[0], "/")
+	ROOT_PATH = strings.Join(ss[:len(ss)-1], "/") + "/"
 	h := HttpServer{
 		routerMap:  map[string]func(http.ResponseWriter, *http.Request) interface{}{},
 		filterList: make([]func(http.ResponseWriter, *http.Request) bool, 0, 16),
@@ -84,14 +90,12 @@ func (h *HttpServer) routerServer(resp http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-
 	// 判断是否访问静态文件
 	args := strings.Split(req.URL.Path, "/")
 	if len(args) >= 3 && args[1] == "static" {
 		StaticFileHandler(resp, req)
 		return
 	}
-
 	reqId := randomString(6)
 	h.log.Info("[%s] request %s", reqId, req.RequestURI)
 	if h.routerMap[req.URL.Path] == nil {
@@ -119,7 +123,13 @@ func StaticFileHandler(resp http.ResponseWriter, req *http.Request) interface{} 
 	if strings.Split(filePath, "/")[0] != "static" {
 		filePath = "static/" + filePath
 	}
+	filePath = ROOT_PATH + filePath
 	data, err := ioutil.ReadFile(filePath)
+	if strings.HasSuffix(filePath, ".css") || strings.HasSuffix(filePath, ".css.map") {
+		resp.Header().Add("Content-Type", "text/css")
+	} else if strings.HasSuffix(filePath, ".js") || strings.HasSuffix(filePath, ".js.map") {
+		resp.Header().Add("Content-Type", "application/javascript")
+	}
 	if err != nil {
 		resp.Write([]byte("404"))
 		return nil

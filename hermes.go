@@ -11,8 +11,14 @@ import (
 	. "hermes/error"
 )
 
-// 监控页面
-func indexHandler(_ http.ResponseWriter, _ *http.Request) interface{} {
+// 首页转发
+func indexHandler(resp http.ResponseWriter, req *http.Request) interface{} {
+	http.Redirect(resp, req, "/static/backend/index.html", 302)
+	return nil
+}
+
+// 获取server列表
+func serverListHandler(_ http.ResponseWriter, _ *http.Request) interface{} {
 	return Response{Code: 0, Data: SERVERS}
 }
 
@@ -70,6 +76,7 @@ func main() {
 	hs.SetLogLevel(INFO)
 	// 路由
 	hs.AddHandler("/", indexHandler)
+	hs.AddHandler("/serverList", serverListHandler)
 	hs.AddHandler("/register", registerHandler)
 	hs.AddHandler("/heartBeat", heartBeatHandler)
 	hs.AddHandler("/server", serverHandler)
