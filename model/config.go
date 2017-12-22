@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"crypto/md5"
 )
 
 // 全局配置
@@ -17,12 +18,13 @@ type Config struct {
 	Timeout    int64
 	KeyLength  int
 	BackupPath string
+	Password   string
 }
 
 func InitConfig() {
 	// 初始化配置
 	ss := strings.Split(os.Args[0], "/")
-	confPath := strings.Join(ss[:len(ss) - 1], "/") + "/hermes.json"
+	confPath := strings.Join(ss[:len(ss)-1], "/") + "/hermes.json"
 	file, err := os.Open(confPath)
 	if err != nil {
 		file, err = os.Open("hermes.json")
@@ -45,7 +47,15 @@ func InitConfig() {
 	if !strings.HasSuffix(path, "/") {
 		path += "/"
 	}
-	CONF = Config{Port: tmp.Port, Timeout: tmp.Timeout, KeyLength: tmp.KeyLength, BackupPath: path}
+	has := md5.Sum([]byte(tmp.Password))
+	password := fmt.Sprintf("%x", has)
+	CONF = Config{
+		Port:       tmp.Port,
+		Timeout:    tmp.Timeout,
+		KeyLength:  tmp.KeyLength,
+		BackupPath: path,
+		Password:   password,
+	}
 
 	// 初始化服务表
 	SERVERS = make([]Server, 0, 16)

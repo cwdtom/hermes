@@ -10,4 +10,4 @@ const CheckServersAliveDuration = 60
 // 移除失效服务时间间隔，单位秒
 const RemoveFailureServerDuration = 120
 // 失效服务超时时移除，单位秒
-const FailServerTimeout = 300
+const FailServerTimeout = 7200

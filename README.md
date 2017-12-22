@@ -19,7 +19,8 @@
       "port": 8080,
       "timeout": 180,
       "keyLength": 1024,
-      "backupPath": "/root/backup/"
+      "backupPath": "/root/backup/",
+      "password": "123456"
     }
     ```
 
@@ -31,6 +32,8 @@
 
 1. backupPath：服务信息备份地址
 
+1. password: 监控页面登录密码
+
 ## Usage
 
-1. http://your_host:port/ 可以查看注册信息
+1. http://your_host:port/ 可以登录监控页面
