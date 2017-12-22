@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"math/rand"
 	"os"
-	"fmt"
 )
 
 // 全局LOG

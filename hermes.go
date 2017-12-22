@@ -11,6 +11,8 @@ import (
 	. "hermes/error"
 )
 
+var INFO_LIST []*Info
+
 // 首页转发
 func indexHandler(resp http.ResponseWriter, req *http.Request) interface{} {
 	http.Redirect(resp, req, "/static/backend/index.html", 302)
@@ -18,15 +20,49 @@ func indexHandler(resp http.ResponseWriter, req *http.Request) interface{} {
 }
 
 // 获取server列表
-func serverListHandler(_ http.ResponseWriter, _ *http.Request) interface{} {
+func serverListHandler(_ http.ResponseWriter, req *http.Request) interface{} {
+	// 权限校验
+	login := loginHandler(nil, req).(Response)
+	if login.Code != 0 {
+		return login
+	}
+
 	return Response{Code: 0, Data: SERVERS}
+}
+
+// 获取运行信息
+func infoHandler(_ http.ResponseWriter, req *http.Request) interface{} {
+	// 权限校验
+	login := loginHandler(nil, req).(Response)
+	if login.Code != 0 {
+		return login
+	}
+
+	tmp := INFO_LIST
+	INFO_LIST = make([]*Info, 0, 1024)
+	return Response{Code: 0, Data: tmp}
+}
+
+// 登录
+func loginHandler(_ http.ResponseWriter, req *http.Request) interface{} {
+	cookie, err := req.Cookie("sign")
+	if err != nil {
+		return Response{Code: 200}
+	}
+	if cookie.Value == CONF.Password {
+		return Response{Code: 0}
+	}
+	return Response{Code: 200}
 }
 
 // 注册服务
 func registerHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 	paramMap := ParamToMap(req)
 	code := 0
-	puk, err := Register(paramMap["id"], paramMap["sessionId"], paramMap["host"])
+	id := paramMap["id"]
+	sessionId := paramMap["sessionId"]
+	INFO_LIST = append(INFO_LIST, NewInfo(2, time.Now().Unix(), id + "-" + sessionId))
+	puk, err := Register(id, sessionId, paramMap["host"])
 	if err != nil {
 		code = err.Code
 	}
@@ -39,8 +75,9 @@ func registerHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 
 // 心跳检测
 func heartBeatHandler(_ http.ResponseWriter, req *http.Request) interface{} {
-	paramMap := ParamToMap(req)
-	err := HeartBeat(paramMap["sessionId"])
+	sessionId := ParamToMap(req)["sessionId"]
+	INFO_LIST = append(INFO_LIST, NewInfo(3, time.Now().Unix(), sessionId + " Heart Beat"))
+	err := HeartBeat(sessionId)
 	if err != nil {
 		return Response{Code: err.Code}
 	}
@@ -54,8 +91,12 @@ func serverHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 	if s == nil || !s.Status {
 		return Response{Code: ServerNotExisted}
 	}
-	data, err := s.CallServer(paramMap["serverId"], paramMap["name"], paramMap["data"])
+	serverId := paramMap["serverId"]
+	name := paramMap["name"]
+	INFO_LIST = append(INFO_LIST, NewInfo(1, time.Now().Unix(), serverId + "-" + name))
+	data, err := s.CallServer(serverId, name, paramMap["data"])
 	if err != nil {
+		INFO_LIST = append(INFO_LIST, NewInfo(4, time.Now().Unix(), serverId + "-" + name))
 		return Response{Code: err.Code}
 	}
 	return Response{Code: 0, Data: data}
@@ -64,6 +105,7 @@ func serverHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 func main() {
 	// 初始化配置
 	InitConfig()
+	INFO_LIST = make([]*Info, 0, 1024)
 	// 恢复备份数据
 	RestoreServers(CONF.BackupPath)
 	// web服务
@@ -81,5 +123,7 @@ func main() {
 	hs.AddHandler("/heartBeat", heartBeatHandler)
 	hs.AddHandler("/server", serverHandler)
 	hs.AddHandler("/favicon.ico", StaticFileHandler)
+	hs.AddHandler("/info", infoHandler)
+	hs.AddHandler("/login", loginHandler)
 	hs.Start(CONF.Port)
 }
