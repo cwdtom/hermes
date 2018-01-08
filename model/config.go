@@ -19,6 +19,7 @@ type Config struct {
 	KeyLength  int
 	BackupPath string
 	Password   string
+	WhiteList  []string
 }
 
 func InitConfig() {
@@ -55,6 +56,7 @@ func InitConfig() {
 		KeyLength:  tmp.KeyLength,
 		BackupPath: path,
 		Password:   password,
+		WhiteList:  tmp.WhiteList,
 	}
 
 	// 初始化服务表
@@ -62,4 +64,18 @@ func InitConfig() {
 
 	// 启动修改SERVERS协程
 	go ModifyServers()
+}
+
+// 检查ip是否存在于白名单
+func (conf *Config) CheckIpAuth(ip string) bool {
+	// 不设置白名单全部IP允许注册
+	if conf.WhiteList == nil || len(conf.WhiteList) == 0 {
+		return true
+	}
+	for _, w := range conf.WhiteList {
+		if w == ip {
+			return true
+		}
+	}
+	return false
 }

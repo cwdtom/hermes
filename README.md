@@ -1,7 +1,7 @@
 # Hermes
 
 
-![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
+![Version](https://img.shields.io/badge/version-2.1.0-green.svg)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](http://opensource.org/licenses/MIT)
 
 ## Overview
@@ -20,7 +20,10 @@
       "timeout": 180,
       "keyLength": 1024,
       "backupPath": "/root/backup/",
-      "password": "123456"
+      "password": "123456",
+      "whiteList": [
+        "127.0.0.1"
+      ]
     }
     ```
 
@@ -33,6 +36,8 @@
 1. backupPath：服务信息备份地址
 
 1. password: 监控页面登录密码
+
+1. whiteList: ip白名单，不在白名单的ip不允许注册，不填写或留空表示允许所有ip（生产环境请勿留空）
 
 ## Usage
 

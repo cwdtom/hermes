@@ -62,7 +62,12 @@ func registerHandler(_ http.ResponseWriter, req *http.Request) interface{} {
 	id := paramMap["id"]
 	sessionId := paramMap["sessionId"]
 	INFO_LIST = append(INFO_LIST, NewInfo(2, time.Now().Unix(), id + "-" + sessionId))
-	puk, err := Register(id, sessionId, paramMap["host"])
+	// 校验IP白名单
+	ip := RemoteIp(req)
+	if !CONF.CheckIpAuth(ip) {
+		return Response{Code: 200}
+	}
+	puk, err := Register(id, sessionId, ip + ":" + paramMap["port"])
 	if err != nil {
 		code = err.Code
 	}
