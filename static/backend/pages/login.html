@@ -78,12 +78,13 @@
 <script>
     var app = angular.module('app', ['angular-md5', 'ipCookie']);
     app.controller('ctrl', function ($scope, $http, md5, ipCookie) {
-        ipCookie('sign', "", {path: '/'});
+        var expireDate = new Date();
+        expireDate.setDate(expireDate.getHours() + 1);
+        ipCookie('sign', "", {path: '/', expires: expireDate});
 
         $scope.login = function () {
             var sign = md5.createHash($scope.password);
-            console.log(sign);
-            ipCookie('sign', sign, {path: '/'});
+            ipCookie('sign', sign, {path: '/', expires: expireDate});
             $http.get('/login').then(
                 function (resp) {
                     if (resp.data['Code'] === 0) {
