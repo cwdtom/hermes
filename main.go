@@ -5,11 +5,13 @@ package main
 import (
 	"net/http"
 	"time"
+
+	"github.com/cwdtom/hermes/types"
+	"github.com/cwdtom/hermes/error"
+
 	hs "github.com/cwdtom/hermes/http_server"
 	hst "github.com/cwdtom/hermes/http_server/types"
 	hu "github.com/cwdtom/hermes/utils/http_utils"
-	"github.com/cwdtom/hermes/types"
-	"github.com/cwdtom/hermes/error"
 )
 
 var INFO_LIST []*types.Info
