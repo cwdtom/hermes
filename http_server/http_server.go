@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"math/rand"
 	"os"
+	"github.com/cwdtom/hermes/http_server/types"
 )
 
 // 全局LOG
@@ -76,7 +77,7 @@ func (h *HttpServer) Start(port int) {
 	for _, t := range h.timerList {
 		t.Start()
 	}
-	h.log.Info("model is running on port: %d", port)
+	h.log.Info("server is running on port: %d", port)
 	http.ListenAndServe(":"+strconv.Itoa(port), nil)
 }
 
@@ -112,7 +113,7 @@ func (h *HttpServer) routerServer(resp http.ResponseWriter, req *http.Request) {
 		h.log.Error("[%s] [false] response %s", reqId, data)
 	} else {
 		resp.Write(respData)
-		h.log.Info("[%s] [%t] response %s", reqId, data.(Response).Code == 0, data)
+		h.log.Info("[%s] [%t] response %s", reqId, data.(types.Response).Code == 0, data)
 	}
 }
 

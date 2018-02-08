@@ -1,6 +1,6 @@
 // author chenweidong
 
-package model
+package types
 
 // 全局常量
 // 备份文件名字

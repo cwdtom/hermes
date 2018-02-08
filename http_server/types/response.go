@@ -1,4 +1,4 @@
-package http_server
+package types
 
 type Response struct {
 	Code int

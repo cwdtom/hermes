@@ -1,15 +1,15 @@
 // 实体相关 author chenweidong
 
-package model
+package types
 
 import (
 	"time"
 	"encoding/json"
 	"os"
 	"bufio"
-	. "hermes/http_server"
-	. "hermes/error"
-	. "hermes/utils/encipher"
+	hs "github.com/cwdtom/hermes/http_server"
+	"github.com/cwdtom/hermes/error"
+	"github.com/cwdtom/hermes/utils/encipher"
 	"net/http"
 	"fmt"
 	"io/ioutil"
@@ -30,11 +30,11 @@ type Server struct {
 	SuccessCount int64
 }
 
-func Register(id, sessionId, host string) (string, *Error) {
+func Register(id, sessionId, host string) (string, *error.Error) {
 	// 生成公私钥
-	key, err := GenRsaKey(CONF.KeyLength)
+	key, err := encipher.GenRsaKey(CONF.KeyLength)
 	if err != nil {
-		return "", NewError(ServerError, err.Error())
+		return "", error.NewError(error.ServerError, err.Error())
 	}
 
 	newServer := Server{Id: id, SessionId: sessionId, Host: host, Status: true,
@@ -48,7 +48,7 @@ func Register(id, sessionId, host string) (string, *Error) {
 	} else {
 		// 检查sessionId是否重复
 		if isSessionIdRepeat(newServer.SessionId) {
-			return "", NewError(SessionIdRepeat, "sessionId is already existed")
+			return "", error.NewError(error.SessionIdRepeat, "sessionId is already existed")
 		}
 		// 通知添加服务
 		modifyServerChannel <- serverChannel{operate: 2, server: newServer}
@@ -58,11 +58,11 @@ func Register(id, sessionId, host string) (string, *Error) {
 	return key.PublicKey, nil
 }
 
-func HeartBeat(sessionId string) *Error {
+func HeartBeat(sessionId string) *error.Error {
 	// 通知修改服务状态
 	index, _ := GetServerBySessionId(sessionId)
 	if index < 0 {
-		return NewError(ServerNotExisted, "server not existed")
+		return error.NewError(error.ServerNotExisted, "server not existed")
 	}
 	modifyServerChannel <- serverChannel{operate: 5, sessionId: sessionId}
 	return nil
@@ -98,28 +98,28 @@ func GetServerBySessionId(sessionId string) (int, *Server) {
 func BackUpServers(path string) {
 	data, err := json.Marshal(SERVERS)
 	if err != nil {
-		LOG.Error("back up error: %s", err.Error())
+		hs.LOG.Error("back up error: %s", err.Error())
 	}
 	filePath := path + BackupFileName
 	out, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 	if err != nil {
-		LOG.Error("back up error: %s", err.Error())
+		hs.LOG.Error("back up error: %s", err.Error())
 	}
 	defer out.Close()
 	outWriter := bufio.NewWriter(out)
 	_, err = outWriter.Write(data)
 	if err != nil {
-		LOG.Error("back up error: %s", err.Error())
+		hs.LOG.Error("back up error: %s", err.Error())
 	}
 	outWriter.Flush()
-	LOG.Info("servers backup success")
+	hs.LOG.Info("servers backup success")
 }
 
 func RestoreServers(path string) {
 	filePath := path + BackupFileName
 	in, err := os.Open(filePath)
 	if err != nil {
-		LOG.Warn("backup file not existed")
+		hs.LOG.Warn("backup file not existed")
 		return
 	}
 	defer in.Close()
@@ -132,14 +132,14 @@ func RestoreServers(path string) {
 // 检查服务状态，超时的置为不可用
 func CheckServersStatus() {
 	// 通知检查服务状态，超时的置为不可用
-	LOG.Info("notice check servers status")
+	hs.LOG.Info("notice check servers status")
 	modifyServerChannel <- serverChannel{operate: 3}
 }
 
 // 移除失效并超出保留时间的服务
 func RemoveFailureServer() {
 	// 通知移除失效并超出保留时间的服务
-	LOG.Info("notice remove failure server")
+	hs.LOG.Info("notice remove failure server")
 	modifyServerChannel <- serverChannel{operate: 4}
 }
 
@@ -165,14 +165,14 @@ func (s *Server) DeepCopy() Server {
 	return target
 }
 
-func (s *Server) CallServer(id, name, data string) ([]byte, *Error) {
+func (s *Server) CallServer(id, name, data string) ([]byte, *error.Error) {
 	// hex to bytes
 	bytes, _ := hex.DecodeString(data)
 	// 解密
-	text, err := RsaDecryptByPrk(bytes, s.PrivateKey)
+	text, err := encipher.RsaDecryptByPrk(bytes, s.PrivateKey)
 	if err != nil {
-		LOG.Warn("调用服务解密失败：%s", err.Error())
-		return nil, &Error{Code: RsaError}
+		hs.LOG.Warn("request call decrypt fail：%s", err.Error())
+		return nil, &error.Error{Code: error.RsaError}
 	}
 	// 提取目标server
 	tmp := make([]*Server, 0, len(SERVERS))
@@ -182,44 +182,44 @@ func (s *Server) CallServer(id, name, data string) ([]byte, *Error) {
 		}
 	}
 	if len(tmp) == 0 {
-		return nil, &Error{Code: ServerNotExisted}
+		return nil, &error.Error{Code: error.ServerNotExisted}
 	}
 	target := tmp[int(time.Now().UnixNano() / 1000000) % len(tmp)]
 	index, _ := GetServerBySessionId(target.SessionId)
 	// 增加调用次数
 	SERVERS[index].CallCount += 1
 	// 明文加密
-	sendData, err := RsaEncryptByPrk(text, target.PrivateKey)
+	sendData, err := encipher.RsaEncryptByPrk(text, target.PrivateKey)
 	if err != nil {
-		LOG.Error("调用服务加密失败：%s", err.Error())
-		return nil, &Error{Code: RsaError}
+		hs.LOG.Error("request call encrypt fail：%s", err.Error())
+		return nil, &error.Error{Code: error.RsaError}
 	}
 	// bytes to hex
 	send := hex.EncodeToString(sendData)
 	// 发送请求
-	address := fmt.Sprintf("http://%s/hermes?sessionId=%s&name=%s&data=%s",
+	address := fmt.Sprintf("http_utils://%s/hermes?sessionId=%s&name=%s&data=%s",
 		target.Host, target.SessionId, name, send)
-	LOG.Info("call server: %s", address)
+	hs.LOG.Info("call server: %s", address)
 	resp, err := http.Get(address)
 	if err != nil {
-		return nil, &Error{Code: RequestError}
+		return nil, &error.Error{Code: error.RequestError}
 	}
 	// 响应解密
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		LOG.Error("请求服务失败：%s | sessionId: %s", err.Error(), target.SessionId)
-		return nil, &Error{Code: ReadResponseError}
+		hs.LOG.Error("request fail：%s | sessionId: %s", err.Error(), target.SessionId)
+		return nil, &error.Error{Code: error.ReadResponseError}
 	}
-	respData, err = RsaDecryptByPrk(respData, target.PrivateKey)
+	respData, err = encipher.RsaDecryptByPrk(respData, target.PrivateKey)
 	if err != nil {
-		LOG.Error("响应解密失败：%s", err.Error())
-		return nil, &Error{Code: RsaError}
+		hs.LOG.Error("response decrypt fail：%s", err.Error())
+		return nil, &error.Error{Code: error.RsaError}
 	}
 	// 响应加密
-	respData, err = RsaEncryptByPrk(respData, s.PrivateKey)
+	respData, err = encipher.RsaEncryptByPrk(respData, s.PrivateKey)
 	if err != nil {
-		LOG.Error("响应加密失败：%s", err.Error())
-		return nil, &Error{Code: RsaError}
+		hs.LOG.Error("response encrypt fail：%s", err.Error())
+		return nil, &error.Error{Code: error.RsaError}
 	}
 	// 添加成功调用次数
 	SERVERS[index].SuccessCount += 1
@@ -241,20 +241,20 @@ func ModifyServers() {
 		case 1: // 更新已有服务
 			if SERVERS[sc.index].Host == sc.server.Host {
 				SERVERS[sc.index] = sc.server
-				LOG.Info("serverId: %s host: %s sessionId: %s update success",
+				hs.LOG.Info("serverId: %s host: %s sessionId: %s update success",
 					sc.server.Id, sc.server.Host, sc.server.SessionId)
 			}
 			break
 		case 2: // 注册新服务
 			SERVERS = append(SERVERS, sc.server)
-			LOG.Info("serverId: %s host: %s sessionId: %s register success",
+			hs.LOG.Info("serverId: %s host: %s sessionId: %s register success",
 				sc.server.Id, sc.server.Host, sc.server.SessionId)
 			break
 		case 3: // 检查服务状态，设置超时服务失效
 			now := time.Now().Unix()
 			for index, s := range SERVERS {
 				if s.Status && now > s.Expire {
-					LOG.Warn("serverId: %s host: %s sessionId: %s already failure",
+					hs.LOG.Warn("serverId: %s host: %s sessionId: %s already failure",
 						s.Id, s.Host, s.SessionId)
 					SERVERS[index].Status = false
 				}
@@ -271,7 +271,7 @@ func ModifyServers() {
 					i--
 					length--
 					isRemove = true
-					LOG.Warn("serverId: %s host: %s sessionId: %s already removed",
+					hs.LOG.Warn("serverId: %s host: %s sessionId: %s already removed",
 						s.Id, s.Host, s.SessionId)
 				}
 			}
@@ -289,7 +289,7 @@ func ModifyServers() {
 			}
 			break
 		default:
-			LOG.Error("ModifyServers fail: operate: %d, sessionId: %s", sc.operate, sc.sessionId)
+			hs.LOG.Error("ModifyServers fail: operate: %d, sessionId: %s", sc.operate, sc.sessionId)
 		}
 	}
 }

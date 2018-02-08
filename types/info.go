@@ -1,7 +1,14 @@
 // author chenweidong
 
-package model
+package types
 
+/**
+InfoType 枚举
+1. 新请求
+2. 服务注册
+3. 服务心跳
+4. 服务未响应
+ */
 type Info struct {
 	InfoType  int
 	TimeStamp int64
@@ -15,11 +22,3 @@ func NewInfo(infoType int, timeStamp int64, content string) *Info {
 		Content:   content,
 	}
 }
-
-/**
-InfoType 枚举
-1. 新请求
-2. 服务注册
-3. 服务心跳
-4. 服务未响应
- */

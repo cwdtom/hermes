@@ -1,6 +1,6 @@
 // http包测试 author chenweidong
 
-package http
+package http_utils
 
 import (
 	"fmt"

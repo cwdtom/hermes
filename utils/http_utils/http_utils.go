@@ -1,6 +1,6 @@
 // http相关工具 author chenweidong
 
-package http
+package http_utils
 
 import (
 	"net/http"
